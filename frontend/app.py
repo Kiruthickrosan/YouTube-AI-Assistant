@@ -87,13 +87,17 @@ if analyze_clicked:
                 st.session_state.video_id = analysis.video_id
                 st.session_state.vectorstore = vectorstore
 
+        except DailyVideoLimitError as exc:
+            st.warning(str(exc))
+
+        except VideoProcessingInProgressError as exc:
+            st.info(str(exc))
+
         except Exception:
             logger.exception("Video analysis failed.")
-
             st.error(
-                "We couldn't analyze this video. Please check that its "
-                "transcript is available and your Gemini configuration "
-                "is correct, then try again."
+                "We couldn't analyze this video. Please check its "
+                "transcript availability and Gemini configuration."
             )
 
 
@@ -121,7 +125,7 @@ if st.session_state.video_overview:
     question = st.chat_input("Ask a question about this video...")
 
     if question:
-        # Provide previous messages as context for follow-up questions.
+        # Preserve previous conversation for follow-up questions.
         previous_history = [
             {
                 "role": message["role"],
@@ -179,17 +183,21 @@ if st.session_state.video_overview:
                     }
                 )
 
-            except DailyVideoLimitError as exc:
-                st.warning(str(exc))
-
-            except VideoProcessingInProgressError as exc:
-                st.info(str(exc))
-
             except Exception:
-                logger.exception("Video analysis failed.")
+                logger.exception("Question answering failed.")
 
-            st.error(
-                "We couldn't analyze this video. Please check that its "
-                "transcript is available and your Gemini configuration "
-                "is correct, then try again."
-            )
+                error_message = (
+                    "I couldn't answer your question right now. "
+                    "The AI service may be temporarily unavailable "
+                    "or its API quota may have been reached."
+                )
+
+                st.error(error_message)
+
+                st.session_state.messages.append(
+                    {
+                        "role": "assistant",
+                        "content": error_message,
+                        "sources": [],
+                    }
+                )
